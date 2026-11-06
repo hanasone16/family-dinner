@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fff5e8">
+<title>우리집 저녁 뭐 먹지?</title>
+<style>
+:root{--ink:#382b23;--muted:#88796d;--accent:#a86632;--cream:#fff5e8;--line:#eee2d5;--card:#fff;--green:#287a55}
+*{box-sizing:border-box}body{margin:0;background:#fbf8f4;color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
+main{max-width:620px;margin:auto;padding:18px 16px 48px}
+.hero{background:linear-gradient(135deg,#fff0d9,#f8dfc2);border-radius:24px;padding:24px 20px;margin:8px 0 18px}
+.eyebrow{font-size:12px;letter-spacing:.12em;color:#93643d;font-weight:800}.hero h1{font-size:27px;margin:8px 0}.hero p{margin:0;color:#765b45}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin:14px 0;box-shadow:0 5px 20px #5d3c1408}
+h2{font-size:17px;margin:0 0 14px}.muted{color:var(--muted);font-size:13px}
+.members{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.member{border:1px solid var(--line);background:#fff;border-radius:13px;padding:10px 3px;color:var(--ink);font-size:12px}
+.member.active{background:#49382c;color:white;border-color:#49382c}.member small{display:block;margin-top:4px;opacity:.75}
+.menu{display:flex;align-items:center;gap:10px;border:1px solid var(--line);padding:12px;border-radius:13px;margin:8px 0;cursor:pointer}
+.menu input{accent-color:var(--accent);width:18px;height:18px}.menu span{flex:1;font-weight:650}
+button{border:0;border-radius:12px;background:var(--accent);color:white;padding:12px 15px;font-weight:750;font-size:14px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#f2ebe4;color:var(--ink)}.danger{background:#fff0ed;color:#a33d2c;padding:7px 10px}
+input[type=text]{min-width:0;width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;background:#fff}
+.addrow{display:flex;gap:8px}.addrow input{flex:1}
+.barline{display:flex;justify-content:space-between;font-size:14px;margin:12px 0 6px}.track{height:9px;background:#f0eae4;border-radius:20px;overflow:hidden}.fill{height:100%;background:#d3a16e;border-radius:20px}
+.winner{background:#fff8e9;border:1px solid #f0dfbd;border-radius:15px;padding:15px;margin-top:14px}
+.status{font-size:12px;color:var(--muted);margin-top:12px}.error{color:#a33d2c}.footer{font-size:12px;color:var(--muted);text-align:center;padding:12px}
+.hidden{display:none!important}
+@media(max-width:390px){.members{grid-template-columns:repeat(3,1fr)}.hero h1{font-size:24px}}
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="eyebrow">FAMILY DINNER VOTE</div>
+    <h1>🍚 우리집 저녁 뭐 먹지?</h1>
+    <p>가족이 한 표씩! 오늘 저녁은 투표로 정해요 ❤️</p>
+    <div id="connection" class="status">연결 확인 중…</div>
+  </section>
+
+  <section class="panel">
+    <h2>① 투표하는 가족 선택</h2>
+    <div id="members" class="members"></div>
+    <p class="muted">가족별 이름을 선택한 뒤 한 표를 행사해 주세요. 같은 이름으로 다시 들어오면 기존 투표를 변경할 수 있어요.</p>
+  </section>
+
+  <section class="panel">
+    <h2>② 오늘 먹고 싶은 메뉴</h2>
+    <div id="menus"></div>
+    <button id="voteBtn" style="width:100%;margin-top:8px" disabled>이 메뉴로 투표하기</button>
+    <p class="status" id="myVote"></p>
+  </section>
+
+  <section class="panel">
+    <h2>③ 메뉴 후보 추가</h2>
+    <form id="addForm" class="addrow">
+      <input id="newMenu" type="text" maxlength="30" placeholder="예: 부대찌개, 닭갈비" required>
+      <button type="submit">추가</button>
+    </form>
+    <p class="muted">가족 누구나 후보 메뉴를 추가할 수 있습니다.</p>
+  </section>
+
+  <section class="panel">
+    <h2>④ 실시간 투표 결과</h2>
+    <div id="results"></div>
+    <div id="winner"></div>
+    <div class="status" id="voteCount"></div>
+  </section>
+
+  <section class="panel">
+    <h2>⑤ 투표 관리</h2>
+    <button class="secondary" id="resetBtn">새 투표 시작하기</button>
+    <p class="muted">관리자 PIN을 입력해야 전체 투표가 초기화됩니다.</p>
+  </section>
+  <div class="footer">우리 가족 저녁 메뉴 회의 · 실시간 공동 투표</div>
+</main>
+
+<script type="module">
+/*
+  1) Firebase 프로젝트를 만든 뒤 아래 firebaseConfig를 본인 값으로 교체하세요.
+  2) Authentication에서 익명 로그인(Anonymous)을 켜세요.
+  3) Realtime Database를 만들고 아래 안내의 보안 규칙을 적용하세요.
+*/
+const firebaseConfig = {
+  apiKey: "AIzaSyCEPSBlZI6MWzemBMJmshZWAH5_RRado8",
+  authDomain: "dinner-9177d.firebaseapp.com",
+  databaseURL: "https://dinner-9177d-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dinner-9177d",
+  storageBucket: "dinner-9177d.firebasestorage.app",
+  messagingSenderId: "262787586704",
+  appId: "1:262787586704:web:6cecf03ee8a904f334d615"
+};
+const FAMILY = ["엄마","아빠","첫째","둘째","셋째"];
+const DEFAULT_MENUS = ["김치찌개","삼겹살","치킨","돈가스","제육볶음","샤브샤브","초밥","파스타"];
+const ADMIN_PIN = "2580"; // 배포 전에 가족끼리 정한 PIN으로 변경하세요.
+
+const connection = document.querySelector("#connection");
+const membersEl = document.querySelector("#members");
+const menusEl = document.querySelector("#menus");
+const resultsEl = document.querySelector("#results");
+const winnerEl = document.querySelector("#winner");
+const voteCountEl = document.querySelector("#voteCount");
+const voteBtn = document.querySelector("#voteBtn");
+const myVoteEl = document.querySelector("#myVote");
+let db, ref, onValue, set, update, push, remove, get, currentUser;
+let selectedMember = "";
+try{ selectedMember = localStorage.getItem("dinnerMember") || ""; }catch(e){}
+let selectedMenu = "";
+let state = {menus: DEFAULT_MENUS, votes:{}};
+
+function safeText(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function render(){
+  membersEl.innerHTML = FAMILY.map(name=>{
+    const done = !!state.votes?.[name];
+    return `<button class="member ${selectedMember===name?"active":""}" data-member="${safeText(name)}">${safeText(name)}<small>${done?"투표 완료":"미투표"}</small></button>`;
+  }).join("");
+  membersEl.querySelectorAll("[data-member]").forEach(b=>b.onclick=()=>{selectedMember=b.dataset.member;try{localStorage.setItem("dinnerMember",selectedMember);}catch(e){}selectedMenu=state.votes?.[selectedMember]||"";render();});
+  const menus = state.menus || DEFAULT_MENUS;
+  menusEl.innerHTML = menus.map(name=>`<label class="menu"><input type="radio" name="menu" value="${safeText(name)}" ${selectedMenu===name?"checked":""}><span>${safeText(name)}</span></label>`).join("");
+  menusEl.querySelectorAll('input[name="menu"]').forEach(r=>r.onchange=()=>{selectedMenu=r.value;voteBtn.disabled=!selectedMember||!currentUser;});
+  voteBtn.disabled = !selectedMember || !selectedMenu || !currentUser;
+  myVoteEl.textContent = selectedMember ? (state.votes?.[selectedMember] ? `현재 ${selectedMember}의 선택: ${state.votes[selectedMember]}` : `${selectedMember}님, 메뉴를 선택해 주세요.`) : "먼저 가족 구성원을 선택해 주세요.";
+  const counts = menus.map(name=>({name,count:Object.values(state.votes||{}).filter(v=>v===name).length})).sort((a,b)=>b.count-a.count);
+  resultsEl.innerHTML = counts.map((x,i)=>`<div class="barline"><span>${i===0&&x.count?"🏆 ":""}${safeText(x.name)}</span><b>${x.count}표</b></div><div class="track"><div class="fill" style="width:${Math.min(100,x.count/FAMILY.length*100)}%"></div></div>`).join("");
+  const total = Object.keys(state.votes||{}).length;
+  voteCountEl.textContent = `투표 완료 ${total}/${FAMILY.length}명`;
+  if(total===FAMILY.length && counts[0]?.count){
+    const tied = counts.filter(x=>x.count===counts[0].count).map(x=>x.name);
+    winnerEl.innerHTML = `<div class="winner"><b>🎉 오늘의 저녁 메뉴</b><div style="font-size:23px;font-weight:850;margin-top:5px">${tied.map(safeText).join(" · ")}</div><div class="muted">동점 메뉴가 있으면 가족끼리 최종 결정해 주세요.</div></div>`;
+  } else winnerEl.innerHTML = counts[0]?.count ? `<div class="winner"><b>현재 1위: ${safeText(counts[0].name)}</b><div class="muted">아직 투표가 진행 중이에요.</div></div>` : "";
+}
+async function start(){
+  try{
+    if(firebaseConfig.apiKey.startsWith("YOUR_")) throw new Error("Firebase 설정이 아직 입력되지 않았습니다. README 안내를 따라 설정해 주세요.");
+    if(!/^AIza[0-9A-Za-z_-]{35}$/.test(firebaseConfig.apiKey)) throw new Error("apiKey가 잘못됐어요(39자여야 함). Firebase 콘솔 > 프로젝트 설정에서 다시 복사해 주세요.");
+    const appMod = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
+    const authMod = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
+    const dbMod = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js");
+    const app = appMod.initializeApp(firebaseConfig);
+    const auth = authMod.getAuth(app);
+    await authMod.signInAnonymously(auth);
+    currentUser = auth.currentUser;
+    db = dbMod.getDatabase(app);
+    ({ref,onValue,set,update,push,remove,get}=dbMod);
+    const root = ref(db,"familyDinner/current");
+    onValue(root,snap=>{
+      const value=snap.val();
+      state = value || {menus:DEFAULT_MENUS,votes:{}};
+      if(!state.votes) state.votes = {};
+      if(!state.menus) state.menus = DEFAULT_MENUS;
+      if(!value) set(root,state).catch(showError);
+      if(!selectedMenu && selectedMember) selectedMenu = state.votes[selectedMember] || "";
+      connection.textContent="🟢 가족 투표방에 연결됐어요 · 실시간 동기화";
+      connection.classList.remove("error");
+      render();
+    },showError);
+  }catch(err){
+    showError(err);
+  }
+}
+function showError(err){
+  const code = err?.code || "";
+  let msg = err?.message || String(err);
+  if(code.includes("api-key-not-valid")) msg = "apiKey가 맞지 않아요. Firebase 콘솔에서 다시 복사해 주세요.";
+  else if(code.includes("operation-not-allowed") || code.includes("admin-restricted")) msg = "Firebase Authentication에서 '익명' 로그인을 켜 주세요.";
+  else if(code.includes("PERMISSION_DENIED") || /permission/i.test(msg)) msg = "데이터베이스 권한이 없어요. README의 보안 규칙을 적용해 주세요.";
+  connection.textContent = "⚠️ " + msg;
+  connection.classList.add("error");
+}
+voteBtn.onclick=async()=>{
+  if(!selectedMember||!selectedMenu||!db)return;
+  try{ await set(ref(db,`familyDinner/current/votes/${selectedMember}`),selectedMenu); }catch(err){ showError(err); alert("투표 저장에 실패했어요."); }
+};
+document.querySelector("#addForm").onsubmit=async e=>{
+  e.preventDefault();const input=document.querySelector("#newMenu");const name=input.value.trim();
+  if(!name||!db)return;
+  if((state.menus||[]).includes(name)){alert("이미 있는 메뉴예요.");return;}
+  try{ await set(ref(db,"familyDinner/current/menus"),[...(state.menus||DEFAULT_MENUS),name]); input.value=""; }catch(err){ showError(err); alert("메뉴 추가에 실패했어요."); }
+};
+document.querySelector("#resetBtn").onclick=async()=>{
+  if(!db)return;
+  const pin=prompt("관리자 PIN을 입력해 주세요.");
+  if(pin!==ADMIN_PIN){if(pin!==null)alert("PIN이 맞지 않습니다.");return;}
+  if(confirm("모든 투표를 초기화하고 기본 메뉴로 새 투표를 시작할까요?")){
+    try{ await set(ref(db,"familyDinner/current"),{menus:DEFAULT_MENUS,votes:{}}); selectedMenu=""; render(); }
+    catch(err){ showError(err); alert("초기화에 실패했어요."); }
+  }
+};
+render();start();
+</script>
+</body>
+</html>
